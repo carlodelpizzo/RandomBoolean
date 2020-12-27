@@ -26,22 +26,22 @@ yellow = [255, 255, 0]
 purple = [128, 0, 128]
 pink = [255, 192, 203]
 
-# Cells
-number_of_cells = 15
-color_on = purple
-color_off = black
-
 
 class MainClass:
-    def __init__(self):
+    def __init__(self, number_of_cells):
         self.cells = []
+        self.cell_borders = False
+        self.color_on = purple
+        self.color_off = [70, 0, 70]
         self.cell_links = {}
+        self.link_max = number_of_cells - 1
         self.history = []
+        self.history_max = 100000
         self.cell_size = screen_height / number_of_cells
         self.step = 0
 
         for i in range(number_of_cells):
-            num_of_con = random.randint(2, number_of_cells - 1)
+            num_of_con = random.randint(2, self.link_max)
             con_list = []
             link = random.randint(0, number_of_cells - 1)
 
@@ -55,13 +55,20 @@ class MainClass:
             self.cells.append(random.randint(0, 1))
 
     def draw_cells(self, x, cells):
-        for i in range(len(cells)):
-            if cells[i] == 1:
-                pygame.draw.rect(screen, color_on, (x + 1, i * self.cell_size + 1, self.cell_size - 2,
-                                                    self.cell_size - 2))
-            elif color_off != black:
-                pygame.draw.rect(screen, color_off, (x + 1, i * self.cell_size + 1, self.cell_size - 2,
-                                                     self.cell_size - 2))
+        if self.cell_borders:
+            for i in range(len(cells)):
+                if cells[i] == 1:
+                    pygame.draw.rect(screen, self.color_on, (x + 1, i * self.cell_size + 1, self.cell_size - 2,
+                                                             self.cell_size - 2))
+                elif self.color_off != black:
+                    pygame.draw.rect(screen, self.color_off, (x + 1, i * self.cell_size + 1, self.cell_size - 2,
+                                                              self.cell_size - 2))
+        else:
+            for i in range(len(cells)):
+                if cells[i] == 1:
+                    pygame.draw.rect(screen, self.color_on, (x, i * self.cell_size, self.cell_size, self.cell_size))
+                elif self.color_off != black:
+                    pygame.draw.rect(screen, self.color_off, (x, i * self.cell_size, self.cell_size, self.cell_size))
 
     def draw(self):
         if self.step * self.cell_size + self.cell_size <= screen_width:
@@ -78,23 +85,12 @@ class MainClass:
                     self.draw_cells(self.cell_size * (cols - 2 - i), self.history[hist_index])
 
     def advance(self):
-        if len(self.history) < 100000:
+        if len(self.history) < self.history_max:
             self.history.append(self.cells)
         else:
             self.history.pop(0)
             self.history.append(self.cells)
         change = []
-        # for i in range(len(self.cells)):
-        #     change_var = 0
-        #     for c in range(len(self.cell_links[i])):
-        #         change_var += self.cells[self.cell_links[i][c]]
-        #
-        #     change_var = int(change_var / len(self.cell_links[i]) * 100)
-        #
-        #     if change_var % 3 == 0:
-        #         change.append(1)
-        #     else:
-        #         change.append(0)
         for i in range(len(self.cells)):
             change_var = 0
             for c in range(len(self.cell_links[i])):
@@ -122,7 +118,7 @@ class MainClass:
             self.cells[ran] = 1
 
 
-main_class = MainClass()
+main_class = MainClass(100)
 
 held_keys = []
 hold_delay = frame_rate / 2
@@ -150,10 +146,13 @@ while running:
             # Disturb
             if keys_list[K_d]:
                 main_class.random_disturb()
+                if 'd' not in held_keys:
+                    held_keys.append('d')
+                    hold_counter = hold_delay
 
             # Reset
             if (keys_list[K_LCTRL] or keys_list[K_RCTRL]) and keys_list[K_r]:
-                main_class.__init__()
+                main_class.__init__(len(main_class.cells))
 
             # Pause
             if keys_list[K_SPACE] and not paused:
@@ -181,14 +180,16 @@ while running:
                 held_keys.pop(held_keys.index('K_RIGHT'))
             if keys_list[K_LEFT] == 0 and 'K_LEFT' in held_keys:
                 held_keys.pop(held_keys.index('K_LEFT'))
+            if keys_list[K_d] == 0 and 'd' in held_keys:
+                held_keys.pop(held_keys.index('d'))
 
         # Window resize event
         if event.type == pygame.VIDEORESIZE:
             screen_width = event.w
             screen_height = event.h
             screen = pygame.display.set_mode((screen_width, screen_height), RESIZABLE)
-            if screen_height / number_of_cells > 4:
-                main_class.cell_size = screen_height / number_of_cells
+            if screen_height / len(main_class.cells) > 4:
+                main_class.cell_size = screen_height / len(main_class.cells)
 
     # Held keys
     if hold_counter > 0:
@@ -198,6 +199,9 @@ while running:
             main_class.advance()
         elif 'K_LEFT' in held_keys:
             main_class.step_back()
+
+        if 'd' in held_keys:
+            main_class.random_disturb()
 
     main_class.draw()
     if not paused:
